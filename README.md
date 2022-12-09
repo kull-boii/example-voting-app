@@ -54,7 +54,7 @@ make sure after completing this demo upgrade back to version by
 
 `docker-compose enable-v2`
 
-replace the content of docker-compose.yml with
+replace the content of docker-compose.yml with (view in raw and copy, dont copy `)
 
 `
 redis:
@@ -98,7 +98,7 @@ expand example-voting-app and delete each container individually
 
 `docker-compose enable-v2`
 
-replace the content of docker-compose.yml with
+replace the content of docker-compose.yml with (view in raw and copy, dont copy `)
 
 `
 version: "3"
