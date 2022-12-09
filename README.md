@@ -1,100 +1,134 @@
-Example Voting App
-=========
+This repo is cloned from https://github.com/dockersamples/example-voting-app
 
-A simple distributed application running across multiple Docker containers.
+### How to run the app
 
-Getting started
----------------
+The app is basically a simple voting application check the architecture.png for better understanding
 
-Download [Docker Desktop](https://www.docker.com/products/docker-desktop) for Mac or Windows. [Docker Compose](https://docs.docker.com/compose) will be automatically installed. On Linux, make sure you have the latest version of [Compose](https://docs.docker.com/compose/install/). 
+### Running the project with plain docker commands
 
+`cd result`
 
-## Linux Containers
+`docker build . -t voting-app`
 
-The Linux stack uses Python, Node.js, .NET Core (or optionally Java), with Redis for messaging and Postgres for storage.
+`cd ..`
 
-> If you're using [Docker Desktop on Windows](https://store.docker.com/editions/community/docker-ce-desktop-windows), you can run the Linux version by [switching to Linux containers](https://docs.docker.com/docker-for-windows/#switch-between-windows-and-linux-containers), or run the Windows containers version.
+`cd worker`
 
-Run in this directory:
-```
-docker compose up
-```
-The app will be running at [http://localhost:5000](http://localhost:5000), and the results will be at [http://localhost:5001](http://localhost:5001).
+`docker build . -t worker-app`
 
-Alternately, if you want to run it on a [Docker Swarm](https://docs.docker.com/engine/swarm/), first make sure you have a swarm. If you don't, run:
-```
-docker swarm init
-```
-Once you have your swarm, in this directory run:
-```
-docker stack deploy --compose-file docker-stack.yml vote
-```
+`cd ..`
 
-## Windows Containers
+`cd vote`
 
-An alternative version of the app uses Windows containers based on Nano Server. This stack runs on .NET Core, using [NATS](https://nats.io) for messaging and [TiDB](https://github.com/pingcap/tidb) for storage.
+`docker build . -t voting-app`
 
-You can build from source using:
+`cd ..`
 
-```
-docker compose -f docker-compose-windows.yml build
-```
+`docker pull redis`
 
-Then run the app using:
+`docker pull postgres:9.4`
 
-```
-docker compose -f docker-compose-windows.yml up -d
-```
+`docker images` (you will see in total 5 images)
 
-> Or in a Windows swarm, run `docker stack deploy -c docker-stack-windows.yml vote`
+`docker network create my-network`
 
-The app will be running at [http://localhost:5000](http://localhost:5000), and the results will be at [http://localhost:5001](http://localhost:5001).
+`docker run --network=my-network -d --name redis redis`
 
+`docker run --network=my-network -d -e POSTGRES_PASSWORD=postgres -e POSTGRES_USER=postgres --name db postgres:9.4`
 
-Run the app in Kubernetes
--------------------------
+`docker run -d --name vote --network=my-network -p 5000:80 voting-app`
 
-The folder k8s-specifications contains the yaml specifications of the Voting App's services.
+`docker run -d --name worker --network=my-network worker-app`
 
-First create the vote namespace
+`docker run -d --name result --network=my-network -p 5001:80 result-app`
 
-```
-$ kubectl create namespace vote
-```
+open localhost:5000 and localhost:5001`
 
-Run the following command to create the deployments and services objects:
-```
-$ kubectl create -f k8s-specifications/
-deployment "db" created
-service "db" created
-deployment "redis" created
-service "redis" created
-deployment "result" created
-service "result" created
-deployment "vote" created
-service "vote" created
-deployment "worker" created
-```
+### Running the project with docker compose (version 1)
 
-The vote interface is then available on port 31000 on each host of the cluster, the result one is available on port 31001.
+first we need to downgrade docker-compose to version 1
 
-Architecture
------
+`docker-compose disable-v2`
 
-![Architecture diagram](architecture.png)
+make sure after completing this demo upgrade back to version by 
 
-* A front-end web app in [Python](/vote) or [ASP.NET Core](/vote/dotnet) which lets you vote between two options
-* A [Redis](https://hub.docker.com/_/redis/) or [NATS](https://hub.docker.com/_/nats/) queue which collects new votes
-* A [.NET Core](/worker/src/Worker), [Java](/worker/src/main) or [.NET Core 2.1](/worker/dotnet) worker which consumes votes and stores them in…
-* A [Postgres](https://hub.docker.com/_/postgres/) or [TiDB](https://hub.docker.com/r/dockersamples/tidb/tags/) database backed by a Docker volume
-* A [Node.js](/result) or [ASP.NET Core SignalR](/result/dotnet) webapp which shows the results of the voting in real time
+`docker-compose enable-v2`
 
+replace the content of docker-compose.yml with
 
-Notes
------
+`
+redis:
+  image: redis:latest
 
-The voting application only accepts one vote per client. It does not register votes if a vote has already been submitted from a client.
+db:
+  image: postgres:9.4
+  environment:
+    POSTGRES_HOST_AUTH_METHOD: trust
 
-This isn't an example of a properly architected perfectly designed distributed app... it's just a simple 
-example of the various types of pieces and languages you might see (queues, persistent data, etc), and how to 
-deal with them in Docker at a basic level. 
+vote:
+  image: voting-app
+  ports:
+    - 5000:80
+  links:
+    - redis
+
+worker:
+  image: worker-app
+  links:
+    - redis
+    - db
+
+result:
+  image: result-app
+  ports:
+    - 5001:80
+  links:
+    - db
+`
+
+`docker-compose up`
+
+`ctrl c to stop`
+
+in order to delete the containers open docker desktop 
+
+expand example-voting-app and delete each container individually
+
+### Running the project with docker compose (version 3)
+
+`docker-compose enable-v2`
+
+replace the content of docker-compose.yml with
+
+`
+version: "3"
+services:
+  redis:
+    image: redis:latest
+
+  db:
+    image: postgres:9.4
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: trust
+
+  vote:
+    image: voting-app
+    ports:
+      - 5000:80
+
+  worker:
+    image: worker-app
+
+  result:
+    image: result-app
+    ports:
+      - 5001:80
+`
+
+`docker-compose up`
+
+`ctrl c to stop`
+
+in order to delete the containers open docker desktop 
+
+expand example-voting-app and delete each container individually
